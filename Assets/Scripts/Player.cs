@@ -1,19 +1,24 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class Player : MonoBehaviour
 {
+    public float Speed = 5f;
+
     [SerializeField] bool _canMove;
-    [SerializeField] float _speed = 5f;
     [SerializeField] CharacterController _characterController;
     [SerializeField] Animator _animator;
 
-    GameInputActions _input;
-    Vector3 _movementDirection;
+    IMoveService _moveService;
+
+    public bool CanMove => _canMove;
+    public Animator Animator => _animator;
+
+    public IInputReader InputReader { get; private set; }
 
     void Awake()
     {
-        _input = new GameInputActions();
+        InputReader = new OldInputReader();
+        _moveService = new PlayerMoveManager(this);
     }
 
     void OnValidate()
@@ -29,39 +34,18 @@ public class Player : MonoBehaviour
         }
     }
 
-    void OnEnable()
+    void Update()
     {
-        _input.Player.Move.performed += HandleOnMovement;
-        _input.Player.Move.canceled += HandleOnMovement;
-
-        _input.Enable();
-    }
-
-    void OnDisable()
-    {
-        _input.Player.Move.performed -= HandleOnMovement;
-        _input.Player.Move.canceled -= HandleOnMovement;
-
-        _input.Disable();
+        _moveService.Tick();
     }
 
     void FixedUpdate()
     {
-        if (!_canMove) return;
-
-        _characterController.Move(_speed * _movementDirection * Time.deltaTime);
+        _moveService.FixedTick();
     }
 
     void LateUpdate()
     {
-        _animator.SetFloat("Speed", _movementDirection.magnitude);
-        _animator.SetFloat("DirectionX", _movementDirection.normalized.x, 0.05f, Time.deltaTime);
-        _animator.SetFloat("DirectionY", _movementDirection.normalized.z, 0.05f, Time.deltaTime);
-    }
-
-    void HandleOnMovement(InputAction.CallbackContext context)
-    {
-        var direction = context.ReadValue<Vector2>();
-        _movementDirection = new Vector3(direction.x, 0, direction.y);
+        _moveService.LateTick();
     }
 }
